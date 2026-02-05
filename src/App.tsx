@@ -11,8 +11,8 @@ function App() {
       <div className="relative pointer-events-none">
         {/* Intro Section */}
         <div className="h-screen w-full flex flex-col items-center justify-center text-white mix-blend-difference pointer-events-none">
-            <h1 className="text-8xl font-serif tracking-tighter opacity-90">SCROLL</h1>
-            <p className="text-xs tracking-[0.8em] mt-6 text-gray-400 uppercase">to begin the journey</p>
+            <h1 className="text-6xl md:text-8xl font-serif tracking-tighter opacity-90">SCROLL</h1>
+            <p className="text-[10px] md:text-xs tracking-[0.5em] md:tracking-[0.8em] mt-6 text-gray-400 uppercase">to begin the journey</p>
         </div>
 
         {/* Feature Section */}

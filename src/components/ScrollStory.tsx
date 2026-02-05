@@ -9,13 +9,13 @@ const ANIMATION_CONFIG = {
     // Scroll Triggers (0.0 - 1.0 of container height)
     SLIDE_1: {
         ENTER_START: 0.05,
-        ENTER_END: 0.25,   
-        FADE_START: 0.30,  
+        ENTER_END: 0.25,
+        FADE_START: 0.30,
         FADE_END: 0.40,
-        TYPING_TRIGGER: 0.25, 
+        TYPING_TRIGGER: 0.25,
     },
     SLIDE_2: {
-        ENTER_START: 0.45, 
+        ENTER_START: 0.45,
         ENTER_END: 0.65,
         FADE_START: 0.70,
         FADE_END: 0.75, // Fades out completely before sequence
@@ -29,7 +29,7 @@ const ANIMATION_CONFIG = {
         WORD_3_START: 0.92, WORD_3_END: 1.0,  // Connection
     },
     // Visual Settings
-    SLIDE_DISTANCE: "50vw", 
+    SLIDE_DISTANCE: "50vw",
     ZOOM_IN: 1.05,
     ZOOM_OUT: 0.95,
 };
@@ -58,7 +58,7 @@ interface TypewriterProps {
 
 const TypewriterText = ({ text, trigger, delayStart = 0, className = "text-5xl" }: TypewriterProps) => {
     if (!trigger) return <span className="opacity-0">{text}</span>;
-    
+
     const letters = Array.from(text);
     return (
         <h2 className={`${className} font-serif leading-tight italic inline-block`}>
@@ -72,7 +72,7 @@ const TypewriterText = ({ text, trigger, delayStart = 0, className = "text-5xl" 
                     {letter}
                 </motion.span>
             ))}
-             <motion.span
+            <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ repeat: Infinity, duration: 0.8, delay: delayStart }}
@@ -94,10 +94,12 @@ const StorySlide = ({ image, text, signature, opacity, x, scale, direction, trig
             style={{ opacity, x, scale }}
             className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none"
         >
-            <div className={`w-full max-w-[90%] flex items-center justify-between ${isLeft ? '' : 'flex-row-reverse'}`}>
+            {/* Mobile: Flex-col (Vertical Stack), Desktop: Flex-row (Horizontal) */}
+            <div className={`w-full h-full md:max-w-[90%] flex flex-col md:flex-row items-center justify-center md:justify-between ${!isLeft ? 'md:flex-row-reverse' : ''}`}>
                 
                 {/* Image Side - Only Render in Image Mode */}
-                <div className={`w-[45%] h-[70vh] flex ${isLeft ? 'justify-end pr-10' : 'justify-start pl-10'}`}>
+                {/* Mobile: Full Width, Top Half. Desktop: 45% Width, Full Height */}
+                <div className={`w-full md:w-[45%] h-[40vh] md:h-[70vh] flex items-center justify-center md:${isLeft ? 'justify-end pr-10' : 'justify-start pl-10'}`}>
                     {mode === 'image' && (
                         <img 
                             src={image} 
@@ -112,28 +114,27 @@ const StorySlide = ({ image, text, signature, opacity, x, scale, direction, trig
                     )}
                 </div>
 
-                {/* Spacer removed - the two main columns serve as the grid */}
-
                 {/* Text Side - Only Render in Text Mode */}
-                <div className={`w-[45%] text-white flex flex-col ${isLeft ? 'pl-10 items-start text-left' : 'pr-10 items-end text-right'}`}>
+                {/* Mobile: Full Width, Bottom Half. Desktop: 45% Width, Full Height */}
+                <div className={`w-full md:w-[45%] text-white flex flex-col items-center md:items-start text-center md:text-left ${!isLeft ? 'md:items-end md:text-right' : ''} ${isLeft ? 'md:pl-10' : 'md:pr-10'}`}>
                      {mode === 'text' && (
-                        <>
+                        <div className="px-6 md:px-0 mt-4 md:mt-0">
                             <TypewriterText 
                                 text={text} 
                                 trigger={triggerTyping} 
-                                className="text-5xl"
+                                className="text-3xl md:text-5xl" // Mobile: 3xl, Desktop: 5xl
                             />
                             {signature && (
-                                <div className="mt-6">
+                                <div className="mt-4 md:mt-6">
                                     <TypewriterText 
                                         text={signature} 
                                         trigger={triggerTyping} 
                                         delayStart={signatureDelay}
-                                        className="text-3xl opacity-80"
+                                        className="text-xl md:text-3xl opacity-80" // Mobile: xl, Desktop: 3xl
                                     />
                                 </div>
                             )}
-                        </>
+                        </div>
                      )}
                 </div>
             </div>
@@ -144,7 +145,7 @@ const StorySlide = ({ image, text, signature, opacity, x, scale, direction, trig
 const WordSequence = ({ scrollYProgress }: { scrollYProgress: MotionValue<number> }) => {
     // Word 1: Continuity
     const opacity1 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_START, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END], 
+        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_START, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END],
         [1, 0] // Fades OUT as we move to next
     );
     // Initial opacity for Word 1 (needs to be visible immediately as Section 2 fades out)
@@ -154,7 +155,7 @@ const WordSequence = ({ scrollYProgress }: { scrollYProgress: MotionValue<number
 
     // Word 2: Consistency
     const opacity2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_START, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END], 
+        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_START, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END],
         [0, 1, 0] // Fade In -> Fade Out
     );
     const display2 = useTransform(scrollYProgress, (v) => 
@@ -163,7 +164,7 @@ const WordSequence = ({ scrollYProgress }: { scrollYProgress: MotionValue<number
 
     // Word 3: Connection (Final)
     const opacity3 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_3_START], 
+        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_3_START],
         [0, 1] // Fade In -> Stay
     );
     const display3 = useTransform(scrollYProgress, (v) => 
@@ -210,31 +211,31 @@ export const ScrollStory = () => {
         [
             ANIMATION_CONFIG.SLIDE_1.ENTER_START, 
             ANIMATION_CONFIG.SLIDE_1.ENTER_END,
-            ANIMATION_CONFIG.SLIDE_1.FADE_START, 
+            ANIMATION_CONFIG.SLIDE_1.FADE_START,
             ANIMATION_CONFIG.SLIDE_1.FADE_END
         ], 
         [0, 1, 1, 0]
     );
     const x1 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_1.ENTER_START, ANIMATION_CONFIG.SLIDE_1.ENTER_END], 
+        [ANIMATION_CONFIG.SLIDE_1.ENTER_START, ANIMATION_CONFIG.SLIDE_1.ENTER_END],
         [`-${ANIMATION_CONFIG.SLIDE_DISTANCE}`, "0vw"]
     );
     const scale1 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_1.FADE_START, ANIMATION_CONFIG.SLIDE_1.FADE_END], 
+        [ANIMATION_CONFIG.SLIDE_1.FADE_START, ANIMATION_CONFIG.SLIDE_1.FADE_END],
         [1, ANIMATION_CONFIG.ZOOM_OUT]
     );
 
     // Slide 2 Transforms
     const opacity2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END, ANIMATION_CONFIG.SLIDE_2.FADE_START, ANIMATION_CONFIG.SLIDE_2.FADE_END], 
+        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END, ANIMATION_CONFIG.SLIDE_2.FADE_START, ANIMATION_CONFIG.SLIDE_2.FADE_END],
         [0, 1, 1, 0] // Now fades out too!
     );
     const x2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END], 
+        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END],
         [ANIMATION_CONFIG.SLIDE_DISTANCE, "0vw"]
     );
     const scale2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END], 
+        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END],
         [ANIMATION_CONFIG.ZOOM_IN, 1]
     );
 
@@ -255,30 +256,30 @@ export const ScrollStory = () => {
 
     return (
         <div ref={containerRef} className="h-[800vh] relative">
-            
+
             {/* STACK 1: IMAGES */}
             <div className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden">
                  <StorySlide 
                     mode="image"
                     direction="left"
-                    image={revealImage}
+                    image={revealImage2} // Swapped: was revealImage
                     text="" 
                     opacity={opacity1}
                     x={x1}
                     scale={scale1}
                     triggerTyping={false}
-                    maskStyle="radial-gradient(circle at center, black 40%, transparent 85%)"
+                    maskStyle="radial-gradient(circle at center, black 30%, transparent 85%)" // Swapped: matched to image 2
                 />
                 <StorySlide 
                     mode="image"
                     direction="right"
-                    image={revealImage2}
+                    image={revealImage} // Swapped: was revealImage2
                     text=""
                     opacity={opacity2}
                     x={x2}
                     scale={scale2}
                     triggerTyping={false}
-                    maskStyle="radial-gradient(circle at center, black 30%, transparent 85%)"
+                    maskStyle="radial-gradient(circle at center, black 40%, transparent 85%)" // Swapped: matched to image 1
                 />
             </div>
 
@@ -288,8 +289,8 @@ export const ScrollStory = () => {
                     mode="text"
                     direction="left"
                     image=""
-                    text="Chasing the truth means chasing your dream."
-                    signature="~ JHB"
+                    text="Simplicity is the ultimate sophistication." // Swapped
+                    signature="~ CTM" // Swapped
                     opacity={opacity1}
                     x={x1}
                     scale={scale1}
@@ -300,15 +301,15 @@ export const ScrollStory = () => {
                     mode="text"
                     direction="right"
                     image=""
-                    text="Simplicity is the ultimate sophistication."
-                    signature="~ CTM"
+                    text="Chasing the truth means chasing your dream." // Swapped
+                    signature="~ JHB" // Swapped
                     opacity={opacity2}
                     x={x2}
                     scale={scale2}
                     triggerTyping={startTyping2}
                     maskStyle=""
                 />
-                
+
                 {/* FINAL WORD SEQUENCE */}
                 <WordSequence scrollYProgress={scrollYProgress} />
             </div>

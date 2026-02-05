@@ -17,11 +17,15 @@ export const ScrollPathAnimation = () => {
             d="M 200 0 C 200 200, 100 400, 100 600 C 100 800, 300 1000, 200 1200"
             fill="none"
             stroke="white"
-            strokeWidth="12"
+            strokeWidth="8" // Mobile default
+            className="md:stroke-[12px]" // Desktop override (using tailwind class if possible, or style)
             strokeLinecap="round"
-            style={{ pathLength }}
+            style={{ 
+              pathLength,
+              strokeWidth: "var(--stroke-width, 12px)" // Fallback or CSS var
+            }}
           />
-        </svg>
+      </svg>
     </div>
   );
 };
