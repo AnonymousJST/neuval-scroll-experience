@@ -1,201 +1,134 @@
 import { motion, useScroll, useTransform, MotionValue } from 'framer-motion';
-import { useRef, useState } from 'react';
-import revealImage from '../assets/reveal-image.png';
-import revealImage2 from '../assets/reveal-image-2.png';
+import { useRef } from 'react';
+import { STORY_DATA } from '../config/storyData';
+import { StoryBlock } from './StoryBlock';
 
-// --- CONFIGURATION ---
-// Centralized "Magic Numbers" for easy tuning
-const ANIMATION_CONFIG = {
-    // Scroll Triggers (0.0 - 1.0 of container height)
-    SLIDE_1: {
-        ENTER_START: 0.05,
-        ENTER_END: 0.25,
-        FADE_START: 0.30,
-        FADE_END: 0.40,
-        TYPING_TRIGGER: 0.25,
-    },
-    SLIDE_2: {
-        ENTER_START: 0.45,
-        ENTER_END: 0.65,
-        FADE_START: 0.70,
-        FADE_END: 0.75, // Fades out completely before sequence
-        TYPING_TRIGGER: 0.65,
-    },
-    WORD_SEQUENCE: {
-        START: 0.80, // Sequence starts here (huge buffer now)
-        // Split the remaining 20% into 3 chunks
-        WORD_1_START: 0.80, WORD_1_END: 0.86, // Continuity
-        WORD_2_START: 0.86, WORD_2_END: 0.92, // Consistency
-        WORD_3_START: 0.92, WORD_3_END: 1.0,  // Connection
-    },
-    // Visual Settings
-    SLIDE_DISTANCE: "50vw",
-    ZOOM_IN: 1.05,
-    ZOOM_OUT: 0.95,
-};
+// --- DATA PREP ---
+const DUO_BLOCKS = STORY_DATA.filter(b => b.type === 'duo');
+const SEQUENCE_BLOCK = STORY_DATA.find(b => b.type === 'sequence');
+const OUTRO_BLOCK = STORY_DATA.find(b => b.type === 'outro');
 
-// --- TYPES ---
-interface StorySlideProps {
-    image: string;
-    text: string;
-    signature?: string; // Optional signature
-    opacity: MotionValue<number>;
-    x: MotionValue<string>;
-    scale: MotionValue<number>;
-    direction: 'left' | 'right';
-    triggerTyping: boolean;
-    maskStyle: string;
-    mode: 'image' | 'text'; // New prop to split rendering
-}
+// --- DYNAMIC CALCULATOR ---
+const HEIGHT_PER_DUO = 400; // vh
+const OUTRO_SCROLL_HEIGHT = 400; // vh extra for the outro section
+const TOTAL_HEIGHT_VH = (DUO_BLOCKS.length * HEIGHT_PER_DUO) + (OUTRO_BLOCK ? OUTRO_SCROLL_HEIGHT : 0);
 
-// --- SUB-COMPONENTS ---
-interface TypewriterProps {
-    text: string;
-    trigger: boolean;
-    delayStart?: number;
-    className?: string; // Allow custom styling (size, margins)
-}
+// TIMING SAFEGUARD:
+// We must ensure that the "Vertical" section finishes at the exact same physical scroll pixel as before.
+// Old Total: 2 * 400 = 800vh.
+// Old Ratio: 0.8.
+// Effective Vertical Scroll Range: 0 to 0.8 of 800vh.
 
-const TypewriterText = ({ text, trigger, delayStart = 0, className = "text-5xl" }: TypewriterProps) => {
-    if (!trigger) return <span className="opacity-0">{text}</span>;
+// New Total: 800 + 400 = 1200vh.
+// The "Vertical" content still occupies the first 800vh.
+// So the vertical section now ends at (800 / 1200) = 0.66 of the new global scroll.
+const VERTICAL_FRACTION = (DUO_BLOCKS.length * HEIGHT_PER_DUO) / TOTAL_HEIGHT_VH;
 
-    const letters = Array.from(text);
-    return (
-        <h2 className={`${className} font-serif leading-tight italic inline-block`}>
-            {letters.map((letter, index) => (
-                <motion.span
-                    key={index}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.01, delay: delayStart + (index * 0.03) }}
-                >
-                    {letter}
-                </motion.span>
-            ))}
-            <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ repeat: Infinity, duration: 0.8, delay: delayStart }}
-                className="inline-block w-[2px] h-[1em] bg-white ml-2 align-middle"
-            />
-        </h2>
-    );
-};
+// We need the vertical blocks to distribute themselves within 0 -> VERTICAL_FRACTION * CONSTANT_RATIO?
+// Actually simplest way:
+// Map 0 -> VERTICAL_FRACTION of global scroll to 0 -> 1 of "Vertical Progress".
+// Pass this "Virtual Vertical Progress" to the blocks.
 
-const StorySlide = ({ image, text, signature, opacity, x, scale, direction, triggerTyping, maskStyle, mode }: StorySlideProps) => {
-    const isLeft = direction === 'left';
-    
-    // Calculate delay for signature
-    const quoteDuration = text.length * 0.03;
-    const signatureDelay = quoteDuration + 0.5;
 
-    return (
-        <motion.div 
-            style={{ opacity, x, scale }}
-            className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none"
-        >
-            {/* Mobile: Flex-col (Vertical Stack), Desktop: Flex-row (Horizontal) */}
-            <div className={`w-full h-full md:max-w-[90%] flex flex-col md:flex-row items-center justify-center md:justify-between ${!isLeft ? 'md:flex-row-reverse' : ''}`}>
-                
-                {/* Image Side - Only Render in Image Mode */}
-                {/* Mobile: Full Width, Top Half. Desktop: 45% Width, Full Height */}
-                <div className={`w-full md:w-[45%] h-[40vh] md:h-[70vh] flex items-center justify-center md:${isLeft ? 'justify-end pr-10' : 'justify-start pl-10'}`}>
-                    {mode === 'image' && (
-                        <img 
-                            src={image} 
-                            alt="Portrait" 
-                            className="h-full w-auto object-contain drop-shadow-2xl"
-                            style={{ 
-                                maxWidth: '100%',
-                                maskImage: maskStyle,
-                                WebkitMaskImage: maskStyle
-                            }}
-                        />
-                    )}
-                </div>
+// --- SUB COMPONENTS ---
 
-                {/* Text Side - Only Render in Text Mode */}
-                {/* Mobile: Full Width, Bottom Half. Desktop: 45% Width, Full Height */}
-                <div className={`w-full md:w-[45%] text-white flex flex-col items-center md:items-start text-center md:text-left ${!isLeft ? 'md:items-end md:text-right' : ''} ${isLeft ? 'md:pl-10' : 'md:pr-10'}`}>
-                     {mode === 'text' && (
-                        <div className="px-6 md:px-0 mt-4 md:mt-0">
-                            <TypewriterText 
-                                text={text} 
-                                trigger={triggerTyping} 
-                                className="text-3xl md:text-5xl" // Mobile: 3xl, Desktop: 5xl
-                            />
-                            {signature && (
-                                <div className="mt-4 md:mt-6">
-                                    <TypewriterText 
-                                        text={signature} 
-                                        trigger={triggerTyping} 
-                                        delayStart={signatureDelay}
-                                        className="text-xl md:text-3xl opacity-80" // Mobile: xl, Desktop: 3xl
-                                    />
-                                </div>
-                            )}
-                        </div>
-                     )}
-                </div>
-            </div>
-        </motion.div>
-    );
-};
+const WordSequence = ({ scrollYProgress, start, end }: { scrollYProgress: MotionValue<number>, start: number, end: number }) => {
+    if (!SEQUENCE_BLOCK || !SEQUENCE_BLOCK.text) return null;
 
-const WordSequence = ({ scrollYProgress }: { scrollYProgress: MotionValue<number> }) => {
-    // Word 1: Continuity
-    const opacity1 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_START, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END],
-        [1, 0] // Fades OUT as we move to next
-    );
-    // Initial opacity for Word 1 (needs to be visible immediately as Section 2 fades out)
-    const display1 = useTransform(scrollYProgress, (v) => 
-        (v >= ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_START && v < ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END) ? 'block' : 'none'
-    );
+    const words = SEQUENCE_BLOCK.text.split('|');
+    // Distribute words within the [start, end] range
+    const rangeSize = end - start;
+    const step = rangeSize / words.length; // Crude distribution
 
-    // Word 2: Consistency
-    const opacity2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_START, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END],
-        [0, 1, 0] // Fade In -> Fade Out
-    );
-    const display2 = useTransform(scrollYProgress, (v) => 
-        (v >= ANIMATION_CONFIG.WORD_SEQUENCE.WORD_1_END && v < ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END) ? 'block' : 'none'
-    );
+    // Hardcoded logic adaptation for parity with original "0.8 -> 1.0" relative feel
+    // Word 1: 0% -> 30% of range
+    // Word 2: 30% -> 60% of range
+    // Word 3: 60% -> 100% of range
 
-    // Word 3: Connection (Final)
-    const opacity3 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END, ANIMATION_CONFIG.WORD_SEQUENCE.WORD_3_START],
-        [0, 1] // Fade In -> Stay
-    );
-    const display3 = useTransform(scrollYProgress, (v) => 
-        (v >= ANIMATION_CONFIG.WORD_SEQUENCE.WORD_2_END) ? 'block' : 'none'
-    );
+    const w1s = start; const w1e = start + (rangeSize * 0.3);
+    const w2s = w1e; const w2e = start + (rangeSize * 0.6);
+    const w3s = w2e; const w3e = end;
+    // We extend the last word visibility slightly into the "hold" phase
+
+    const wordRanges = [
+        { display: [w1s, w1e], opacityInput: [w1s, w1e], opacityOutput: [1, 0] },
+        { display: [w1e, w2e], opacityInput: [w1e, w1e + 0.01, w2e], opacityOutput: [0, 1, 0] },
+        { display: [w2e, end + 0.05], opacityInput: [w2e, w2e + 0.05, end], opacityOutput: [0, 1, 0] } // Fade "Connection" out as it approaches the end
+    ];
+
+    const WordItem = ({ word, index }: { word: string, index: number }) => {
+        const range = wordRanges[index] || wordRanges[wordRanges.length - 1];
+        const opacity = useTransform(scrollYProgress, range.opacityInput, range.opacityOutput);
+        const display = useTransform(scrollYProgress, (v) =>
+            (v >= range.display[0] && v < range.display[1]) ? 'block' : 'none'
+        );
+
+        return (
+            <motion.h2 style={{ display, opacity }} className="text-4xl font-serif text-white italic absolute">
+                {word}
+            </motion.h2>
+        );
+    };
 
     return (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none mix-blend-difference">
-            <motion.h2 
-                style={{ display: display1, opacity: opacity1 }}
-                className="text-4xl font-serif text-white italic"
-            >
-                Continuity
-            </motion.h2>
-
-            <motion.h2 
-                style={{ display: display2, opacity: opacity2 }}
-                className="text-4xl font-serif text-white italic"
-            >
-                Consistency
-            </motion.h2>
-
-            <motion.h2 
-                style={{ display: display3, opacity: opacity3 }}
-                className="text-4xl font-serif text-white italic"
-            >
-                Connection
-            </motion.h2>
+            {words.map((word, i) => <WordItem key={i} word={word} index={i} />)}
         </div>
     );
 };
+
+const OutroSection = ({ scrollYProgress, start, end, data }: { scrollYProgress: MotionValue<number>, start: number, end: number, data: any }) => {
+    if (!data || !data.items) return null;
+
+    // Calculate scroll ranges for each section (2 items, 50% each)
+    const scrollRange = end - start;
+    const sectionDuration = scrollRange / 2; // Divide into 2 equal sections
+
+    // Section 1: First phrase (start → start + sectionDuration)
+    const section1Start = start;
+    const section1End = start + sectionDuration;
+    const item1_opacity = useTransform(
+        scrollYProgress,
+        [section1Start, section1Start + 0.05, section1End - 0.05, section1End],
+        [0, 1, 1, 0]
+    );
+
+    // Section 2: Second phrase (start + sectionDuration → end)
+    const section2Start = section1End;
+    const section2End = end;
+    const item2_opacity = useTransform(
+        scrollYProgress,
+        [section2Start, section2Start + 0.05, section2End - 0.05, section2End],
+        [0, 1, 1, 0]
+    );
+
+    return (
+        <>
+            {/* Section 1: First Phrase */}
+
+            {/* Section 2: Second Phrase */}
+            <motion.div
+                style={{ opacity: item1_opacity }}
+                className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden bg-black z-10"
+            >
+                <p className="text-4xl font-serif text-white italic text-center max-w-2xl px-20">
+                    {data.items[0]?.text}
+                </p>
+            </motion.div>
+
+
+            <motion.div
+                style={{ opacity: item2_opacity }}
+                className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden bg-black z-10"
+            >
+                <p className="text-4xl font-serif text-white italic text-center max-w-2xl px-20">
+                    {data.items[1]?.text}
+                </p>
+            </motion.div>
+        </>
+    );
+};
+
 
 // --- MAIN COMPONENT ---
 export const ScrollStory = () => {
@@ -205,114 +138,94 @@ export const ScrollStory = () => {
         offset: ["start start", "end end"]
     });
 
-    // -- ANIMATION LOGIC --
-    // Slide 1 Transforms
-    const opacity1 = useTransform(scrollYProgress, 
-        [
-            ANIMATION_CONFIG.SLIDE_1.ENTER_START, 
-            ANIMATION_CONFIG.SLIDE_1.ENTER_END,
-            ANIMATION_CONFIG.SLIDE_1.FADE_START,
-            ANIMATION_CONFIG.SLIDE_1.FADE_END
-        ], 
-        [0, 1, 1, 0]
-    );
-    const x1 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_1.ENTER_START, ANIMATION_CONFIG.SLIDE_1.ENTER_END],
-        [`-${ANIMATION_CONFIG.SLIDE_DISTANCE}`, "0vw"]
-    );
-    const scale1 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_1.FADE_START, ANIMATION_CONFIG.SLIDE_1.FADE_END],
-        [1, ANIMATION_CONFIG.ZOOM_OUT]
-    );
+    // VIRTUAL PROGRESS MAPPING
+    // Vertical section runs from 0.0 to VERTICAL_FRACTION
+    // We map that [0, VF] -> [0, 1] so the internal components behave as if they have the full scroll.
+    const verticalProgress = useTransform(scrollYProgress, [0, VERTICAL_FRACTION], [0, 1]);
 
-    // Slide 2 Transforms
-    const opacity2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END, ANIMATION_CONFIG.SLIDE_2.FADE_START, ANIMATION_CONFIG.SLIDE_2.FADE_END],
-        [0, 1, 1, 0] // Now fades out too!
-    );
-    const x2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END],
-        [ANIMATION_CONFIG.SLIDE_DISTANCE, "0vw"]
-    );
-    const scale2 = useTransform(scrollYProgress, 
-        [ANIMATION_CONFIG.SLIDE_2.ENTER_START, ANIMATION_CONFIG.SLIDE_2.ENTER_END],
-        [ANIMATION_CONFIG.ZOOM_IN, 1]
-    );
+    // Derived Constants for Vertical Logic
+    // Original logic used 0.8 as the "Content End" point relative to a full scroll.
+    // We keep that ratio for the *virtual* progress.
+    const CONTENT_SCROLL_RATIO = 0.8;
+    const SEGMENT_SIZE = CONTENT_SCROLL_RATIO / DUO_BLOCKS.length;
 
-    // Typing Logic
-    const [startTyping1, setStartTyping1] = useState(false);
-    const [startTyping2, setStartTyping2] = useState(false);
+    // Word Sequence usually happened from 0.8 to 1.0 (relative to vertical end)
+    // Now it happens from 0.8 to 1.0 of VERTICAL_FRACTION.
+    // We need to pass the *actual global* start/end points to WordSequence if we want it to be precise?
+    // Actually, if we pass `verticalProgress` to WordSequence, it will think it's 0->1. 
+    // BUT WordSequence in my previous code used hardcoded ranges [0.80, 0.86] etc.
+    // So passing `verticalProgress` works perfectly! It preserves the relative timing.
 
-    useTransform(scrollYProgress, (value) => {
-        // Slide 1
-        if (value > ANIMATION_CONFIG.SLIDE_1.TYPING_TRIGGER && value < ANIMATION_CONFIG.SLIDE_1.FADE_END && !startTyping1) setStartTyping1(true);
-        if ((value < ANIMATION_CONFIG.SLIDE_1.TYPING_TRIGGER || value > ANIMATION_CONFIG.SLIDE_1.FADE_END) && startTyping1) setStartTyping1(false);
-
-        // Slide 2
-        if (value > ANIMATION_CONFIG.SLIDE_2.TYPING_TRIGGER && value < ANIMATION_CONFIG.SLIDE_2.FADE_END && !startTyping2) setStartTyping2(true);
-        if ((value < ANIMATION_CONFIG.SLIDE_2.TYPING_TRIGGER || value > ANIMATION_CONFIG.SLIDE_2.FADE_END) && startTyping2) setStartTyping2(false);
-        return value;
-    });
+    // WAIT. WordSequence needs `Display` toggle. 
+    // If verticalProgress > 1 (which handles the Horizontal part), the words might disappear or glitch?
+    // Yes, useTransform clamps by default? No.
+    // We need to make sure WordSequence stays visible or hands off correctly.
+    // The last word "Connection" needs to stay visible until the Horizontal Layer (z-10) covers it.
 
     return (
-        <div ref={containerRef} className="h-[800vh] relative">
+        <div ref={containerRef} className={`relative`} style={{ height: `${TOTAL_HEIGHT_VH}vh` }}>
 
+            {/* --- VERTICAL SECTION --- */}
             {/* STACK 1: IMAGES */}
             <div className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden">
-                 <StorySlide 
-                    mode="image"
-                    direction="left"
-                    image={revealImage2} // Swapped: was revealImage
-                    text="" 
-                    opacity={opacity1}
-                    x={x1}
-                    scale={scale1}
-                    triggerTyping={false}
-                    maskStyle="radial-gradient(circle at center, black 30%, transparent 85%)" // Swapped: matched to image 2
-                />
-                <StorySlide 
-                    mode="image"
-                    direction="right"
-                    image={revealImage} // Swapped: was revealImage2
-                    text=""
-                    opacity={opacity2}
-                    x={x2}
-                    scale={scale2}
-                    triggerTyping={false}
-                    maskStyle="radial-gradient(circle at center, black 40%, transparent 85%)" // Swapped: matched to image 1
-                />
+                {DUO_BLOCKS.map((block, i) => {
+                    const enterStart = (i * SEGMENT_SIZE) + 0.05;
+                    const config = {
+                        enterStart,
+                        enterEnd: enterStart + 0.20,
+                        fadeStart: enterStart + 0.25,
+                        fadeEnd: enterStart + 0.35
+                    };
+                    return (
+                        <StoryBlock
+                            key={`img-${block.id}`}
+                            data={block}
+                            mode="image"
+                            index={i}
+                            scrollYProgress={verticalProgress} // Using Virtual Progress
+                            config={config}
+                        />
+                    );
+                })}
             </div>
 
             {/* STACK 2: TEXT */}
             <div className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden mix-blend-difference -mt-[100vh]">
-                 <StorySlide 
-                    mode="text"
-                    direction="left"
-                    image=""
-                    text="Simplicity is the ultimate sophistication." // Swapped
-                    signature="~ CTM" // Swapped
-                    opacity={opacity1}
-                    x={x1}
-                    scale={scale1}
-                    triggerTyping={startTyping1}
-                    maskStyle=""
-                />
-                <StorySlide 
-                    mode="text"
-                    direction="right"
-                    image=""
-                    text="Chasing the truth means chasing your dream." // Swapped
-                    signature="~ JHB" // Swapped
-                    opacity={opacity2}
-                    x={x2}
-                    scale={scale2}
-                    triggerTyping={startTyping2}
-                    maskStyle=""
-                />
+                {DUO_BLOCKS.map((block, i) => {
+                    const enterStart = (i * SEGMENT_SIZE) + 0.05;
+                    const config = {
+                        enterStart,
+                        enterEnd: enterStart + 0.20,
+                        fadeStart: enterStart + 0.25,
+                        fadeEnd: enterStart + 0.35
+                    };
+                    return (
+                        <StoryBlock
+                            key={`txt-${block.id}`}
+                            data={block}
+                            mode="text"
+                            index={i}
+                            scrollYProgress={verticalProgress} // Using Virtual Progress
+                            config={config}
+                        />
+                    );
+                })}
 
                 {/* FINAL WORD SEQUENCE */}
-                <WordSequence scrollYProgress={scrollYProgress} />
+                {/* Passing virtual progress ranges: 0.8 to 1.0 */}
+                <WordSequence scrollYProgress={verticalProgress} start={0.8} end={1.0} />
             </div>
+
+
+            {/* --- OUTRO SECTION --- */}
+            {OUTRO_BLOCK && (
+                <OutroSection
+                    scrollYProgress={scrollYProgress} // Uses GLOBAL progress (Real Time)
+                    start={VERTICAL_FRACTION}
+                    end={1.0}
+                    data={OUTRO_BLOCK}
+                />
+            )}
 
         </div>
     );
