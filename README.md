@@ -10,14 +10,16 @@ This project implements a sophisticated "Scrollytelling" experience where conten
 
 - **Dual-Layer Blending:** Text inverts color (`mix-blend-difference`) against the background while images remain standard.
 - **Cinematic Timing:** Content "holds" in place for readability before transitioning.
-- **Pinned Sequence:** A dedicated "Word Sequence" at the bottom of the scroll that cycles through brand values in place.
-- **Optimized Performance:** Uses `framer-motion` optimized transforms (translate3d/opacity) for 60fps performance on standard devices.
+- **Pinned Sequence:** A dedicated "Word Sequence" that cycles through brand values ("Continuity", "Consistency", "Connection") in place.
+- **Glowing SVG Path:** A white animated path with a soft glow effect that draws as you scroll.
+- **Radial Gradient Background:** Subtle center glow replacing flat black for added depth.
+- **Optimized Performance:** Uses `framer-motion` optimized transforms (translate3d/opacity) for 60fps performance.
 
 ## 🛠 Tech Stack
 
 - **Framework:** React + Vite
 - **Language:** TypeScript
-- **Styling:** Tailwind CSS (Nativewind philosophy)
+- **Styling:** Tailwind CSS
 - **Animation:** Framer Motion (`useScroll`, `useTransform`)
 
 ## 📦 Installation
@@ -45,8 +47,21 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a deep dive into the animat
 ```
 src/
 ├── components/
-│   ├── ScrollStory.tsx       # Main animation controller (The "Story")
-│   └── ScrollPathAnimation.tsx # Background line animation
-├── assets/                   # Optimized images
-└── App.tsx                   # Composition Root
+│   ├── ScrollStory.tsx         # Main animation controller (The "Story")
+│   ├── ScrollPathAnimation.tsx # Background SVG path with glow
+│   └── StoryBlock.tsx          # Reusable render unit for duo blocks
+├── config/
+│   └── storyData.ts            # Content configuration (Single Source of Truth)
+├── types/
+│   └── story.ts                # TypeScript interfaces
+├── utils/
+│   └── pathGenerator.ts        # Dynamic SVG path generation
+├── assets/                     # Optimized images
+├── App.tsx                     # Composition Root
+└── index.css                   # Global styles
 ```
+
+## 🎨 Visual Enhancements
+
+- **Radial Gradient Background:** `radial-gradient(circle at 50% 40%, #0a0a0a 0%, #000000 60%)`
+- **Glowing Path:** Dual-layer drop-shadow filter for premium feel
